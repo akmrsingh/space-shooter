@@ -26,10 +26,11 @@ PURPLE = (150, 0, 255)
 CYAN = (0, 255, 255)
 PINK = (255, 100, 150)
 DARK_BLUE = (10, 10, 40)
+CREAM = (255, 248, 220)
 
 # Screen setup
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Space Shooter 2D - Classic Arcade")
+pygame.display.set_caption("Space Shooter 2D")
 clock = pygame.time.Clock()
 
 # Fonts
@@ -38,14 +39,103 @@ large_font = pygame.font.Font(None, 72)
 small_font = pygame.font.Font(None, 24)
 
 
+def create_nebula_background():
+    """Create a nebula-style space background"""
+    surface = pygame.Surface((WIDTH, HEIGHT))
+    surface.fill((5, 5, 15))
+
+    # Draw nebula clouds
+    for _ in range(8):
+        cx = random.randint(0, WIDTH)
+        cy = random.randint(0, HEIGHT)
+        for r in range(150, 10, -5):
+            alpha = int(15 * (r / 150))
+            color = random.choice([
+                (30 + alpha, 20 + alpha, 60 + alpha),
+                (20 + alpha, 30 + alpha, 50 + alpha),
+                (40 + alpha, 25 + alpha, 55 + alpha),
+            ])
+            pygame.draw.circle(surface, color, (cx + random.randint(-20, 20),
+                                                cy + random.randint(-20, 20)), r)
+
+    # Add stars
+    for _ in range(150):
+        x = random.randint(0, WIDTH)
+        y = random.randint(0, HEIGHT)
+        size = random.randint(1, 2)
+        brightness = random.randint(150, 255)
+        pygame.draw.circle(surface, (brightness, brightness, brightness), (x, y), size)
+
+    return surface
+
+
+def create_planet():
+    """Create a planet surface"""
+    size = 60
+    surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+
+    # Planet body - orange/brown
+    pygame.draw.circle(surface, (180, 100, 60), (size, size), size)
+    pygame.draw.circle(surface, (200, 120, 70), (size - 10, size - 10), size - 5)
+
+    # Crater details
+    pygame.draw.circle(surface, (150, 80, 50), (size + 15, size - 10), 12)
+    pygame.draw.circle(surface, (160, 90, 55), (size - 20, size + 15), 8)
+    pygame.draw.circle(surface, (140, 70, 45), (size + 5, size + 20), 10)
+
+    return surface
+
+
+class SpaceDebris:
+    """Colorful space debris floating in background"""
+    def __init__(self):
+        self.x = random.randint(0, WIDTH)
+        self.y = random.randint(-50, HEIGHT)
+        self.speed = random.uniform(0.3, 1.5)
+        self.size = random.randint(2, 6)
+        self.color = random.choice([
+            CYAN, PINK, YELLOW, PURPLE, ORANGE, (100, 200, 255), (255, 150, 200)
+        ])
+        self.shape = random.choice(['rect', 'diamond'])
+        self.angle = random.uniform(0, math.pi * 2)
+        self.rotation_speed = random.uniform(-0.05, 0.05)
+
+    def update(self):
+        self.y += self.speed
+        self.angle += self.rotation_speed
+        if self.y > HEIGHT + 10:
+            self.y = -10
+            self.x = random.randint(0, WIDTH)
+
+    def draw(self, surface):
+        if self.shape == 'rect':
+            # Rotated rectangle
+            points = []
+            for i in range(4):
+                a = self.angle + i * math.pi / 2
+                px = self.x + math.cos(a) * self.size
+                py = self.y + math.sin(a) * self.size
+                points.append((px, py))
+            pygame.draw.polygon(surface, self.color, points)
+        else:
+            # Diamond shape
+            points = [
+                (self.x, self.y - self.size),
+                (self.x + self.size, self.y),
+                (self.x, self.y + self.size),
+                (self.x - self.size, self.y)
+            ]
+            pygame.draw.polygon(surface, self.color, points)
+
+
 class Star:
     """Background star for parallax effect"""
     def __init__(self):
         self.x = random.randint(0, WIDTH)
         self.y = random.randint(0, HEIGHT)
-        self.speed = random.uniform(0.5, 2)
-        self.size = random.randint(1, 3)
-        brightness = int(100 + self.speed * 75)
+        self.speed = random.uniform(0.2, 0.8)
+        self.size = random.randint(1, 2)
+        brightness = random.randint(150, 255)
         self.color = (brightness, brightness, brightness)
 
     def update(self):
@@ -105,7 +195,6 @@ class Bullet:
         return 0 <= self.x <= WIDTH and 0 <= self.y <= HEIGHT
 
     def draw(self, surface):
-        # Draw bullet with glow effect
         pygame.draw.circle(surface, WHITE, (int(self.x), int(self.y)), self.radius + 2)
         pygame.draw.circle(surface, self.color, (int(self.x), int(self.y)), self.radius)
 
@@ -131,23 +220,23 @@ class EnemyBullet:
 
 
 class Player:
-    """Player ship class"""
+    """Player ship - cream/white triangular spacecraft"""
     def __init__(self, x, y, player_num=0):
         self.x = x
         self.y = y
         self.player_num = player_num
-        self.angle = -math.pi / 2  # Facing up
+        self.angle = -math.pi / 2
         self.speed = 5
         self.health = 100
         self.max_health = 100
         self.damage = 10
-        self.fire_rate = 200  # ms between shots
+        self.fire_rate = 200
         self.last_shot = 0
         self.score = 0
         self.radius = 20
 
-        # Ship colors per player
-        self.colors = [CYAN, GREEN, ORANGE, PINK]
+        # Ship colors - cream/white main color
+        self.colors = [CREAM, (200, 255, 200), (255, 200, 150), (200, 200, 255)]
         self.color = self.colors[player_num % 4]
 
         # Power-up effects
@@ -160,19 +249,17 @@ class Player:
         self.damage_boost = False
         self.damage_boost_timer = 0
 
-        # Ship upgrades
+        # Upgrades
         self.speed_level = 0
         self.damage_level = 0
         self.fire_rate_level = 0
         self.health_level = 0
 
     def update(self, keys, mouse_pos=None, local_player_num=0):
-        """Update player movement and aiming"""
         dx, dy = 0, 0
         aim_dx, aim_dy = 0, 0
 
         if local_player_num == 0:
-            # Player 1: WASD + Mouse
             if keys[pygame.K_w]: dy -= 1
             if keys[pygame.K_s]: dy += 1
             if keys[pygame.K_a]: dx -= 1
@@ -181,7 +268,6 @@ class Player:
                 aim_dx = mouse_pos[0] - self.x
                 aim_dy = mouse_pos[1] - self.y
         elif local_player_num == 1:
-            # Player 2: IJKL + Arrow keys
             if keys[pygame.K_i]: dy -= 1
             if keys[pygame.K_k]: dy += 1
             if keys[pygame.K_j]: dx -= 1
@@ -191,7 +277,6 @@ class Player:
             if keys[pygame.K_LEFT]: aim_dx -= 1
             if keys[pygame.K_RIGHT]: aim_dx += 1
         elif local_player_num == 2:
-            # Player 3: TFGH + Numpad
             if keys[pygame.K_t]: dy -= 1
             if keys[pygame.K_g]: dy += 1
             if keys[pygame.K_f]: dx -= 1
@@ -201,26 +286,21 @@ class Player:
             if keys[pygame.K_KP4]: aim_dx -= 1
             if keys[pygame.K_KP6]: aim_dx += 1
 
-        # Normalize movement
         if dx != 0 or dy != 0:
             length = math.sqrt(dx * dx + dy * dy)
             dx /= length
             dy /= length
 
-        # Apply movement
         actual_speed = self.speed + self.speed_level * 0.5
         self.x += dx * actual_speed
         self.y += dy * actual_speed
 
-        # Keep in bounds
         self.x = max(self.radius, min(WIDTH - self.radius, self.x))
         self.y = max(self.radius, min(HEIGHT - self.radius, self.y))
 
-        # Update aim angle
         if aim_dx != 0 or aim_dy != 0:
             self.angle = math.atan2(aim_dy, aim_dx)
 
-        # Update power-up timers
         current_time = pygame.time.get_ticks()
         if self.shield_active and current_time > self.shield_timer:
             self.shield_active = False
@@ -232,7 +312,6 @@ class Player:
             self.damage_boost = False
 
     def shoot(self):
-        """Attempt to shoot"""
         current_time = pygame.time.get_ticks()
         actual_fire_rate = self.fire_rate - self.fire_rate_level * 20
         if self.rapid_fire:
@@ -247,21 +326,19 @@ class Player:
 
             if self.spread_shot:
                 for offset in [-0.3, 0, 0.3]:
-                    bullets.append(Bullet(self.x, self.y, self.angle + offset, damage, 12, self.color, self.player_num))
+                    bullets.append(Bullet(self.x, self.y, self.angle + offset, damage, 12, CYAN, self.player_num))
             else:
-                bullets.append(Bullet(self.x, self.y, self.angle, damage, 12, self.color, self.player_num))
+                bullets.append(Bullet(self.x, self.y, self.angle, damage, 12, CYAN, self.player_num))
             return bullets
         return []
 
     def take_damage(self, amount):
-        """Take damage if not shielded"""
         if not self.shield_active:
             self.health -= amount
             return True
         return False
 
     def apply_powerup(self, powerup_type):
-        """Apply power-up effect"""
         current_time = pygame.time.get_ticks()
         duration = 8000
 
@@ -281,31 +358,57 @@ class Player:
             self.health = min(self.max_health, self.health + 30)
 
     def draw(self, surface):
-        """Draw the player ship"""
-        # Ship body (triangle pointing in aim direction)
-        points = []
-        for i in range(3):
-            angle = self.angle + i * (2 * math.pi / 3)
-            if i == 0:
-                dist = self.radius * 1.2
-            else:
-                dist = self.radius * 0.8
-            px = self.x + math.cos(angle) * dist
-            py = self.y + math.sin(angle) * dist
-            points.append((px, py))
+        """Draw the triangular spacecraft"""
+        cx, cy = int(self.x), int(self.y)
 
-        pygame.draw.polygon(surface, self.color, points)
-        pygame.draw.polygon(surface, WHITE, points, 2)
+        # Main ship body - triangular shape pointing in aim direction
+        nose_x = cx + math.cos(self.angle) * 25
+        nose_y = cy + math.sin(self.angle) * 25
 
-        # Cockpit
-        pygame.draw.circle(surface, WHITE, (int(self.x), int(self.y)), 5)
+        left_x = cx + math.cos(self.angle + 2.5) * 18
+        left_y = cy + math.sin(self.angle + 2.5) * 18
+
+        right_x = cx + math.cos(self.angle - 2.5) * 18
+        right_y = cy + math.sin(self.angle - 2.5) * 18
+
+        # Draw main body
+        pygame.draw.polygon(surface, self.color, [
+            (nose_x, nose_y),
+            (left_x, left_y),
+            (right_x, right_y)
+        ])
+
+        # Inner darker triangle
+        inner_nose_x = cx + math.cos(self.angle) * 18
+        inner_nose_y = cy + math.sin(self.angle) * 18
+        inner_left_x = cx + math.cos(self.angle + 2.3) * 12
+        inner_left_y = cy + math.sin(self.angle + 2.3) * 12
+        inner_right_x = cx + math.cos(self.angle - 2.3) * 12
+        inner_right_y = cy + math.sin(self.angle - 2.3) * 12
+
+        darker = (max(0, self.color[0] - 40), max(0, self.color[1] - 40), max(0, self.color[2] - 40))
+        pygame.draw.polygon(surface, darker, [
+            (inner_nose_x, inner_nose_y),
+            (inner_left_x, inner_left_y),
+            (inner_right_x, inner_right_y)
+        ])
+
+        # Cockpit - small blue circle
+        cockpit_x = cx + math.cos(self.angle) * 5
+        cockpit_y = cy + math.sin(self.angle) * 5
+        pygame.draw.circle(surface, (100, 150, 255), (int(cockpit_x), int(cockpit_y)), 4)
+
+        # Engine glow
+        engine_x = cx - math.cos(self.angle) * 15
+        engine_y = cy - math.sin(self.angle) * 15
+        pygame.draw.circle(surface, (255, 200, 100), (int(engine_x), int(engine_y)), 5)
+        pygame.draw.circle(surface, (255, 255, 200), (int(engine_x), int(engine_y)), 3)
 
         # Shield effect
         if self.shield_active:
-            pygame.draw.circle(surface, (100, 200, 255), (int(self.x), int(self.y)), self.radius + 10, 3)
+            pygame.draw.circle(surface, (100, 200, 255), (cx, cy), self.radius + 10, 3)
 
         # Power-up indicators
-        indicator_y = self.y - self.radius - 15
         indicators = []
         if self.rapid_fire:
             indicators.append(("R", YELLOW))
@@ -315,13 +418,13 @@ class Player:
             indicators.append(("D", RED))
 
         for i, (text, color) in enumerate(indicators):
-            x = self.x - 10 + i * 15
+            x = cx - 10 + i * 15
             txt = small_font.render(text, True, color)
-            surface.blit(txt, (x, indicator_y))
+            surface.blit(txt, (x, cy - self.radius - 15))
 
 
 class Enemy:
-    """Base enemy class"""
+    """Robot-style enemy"""
     def __init__(self, x, y):
         self.x = x
         self.y = y
@@ -329,26 +432,25 @@ class Enemy:
         self.max_health = 30
         self.damage = 10
         self.speed = 2
-        self.radius = 15
-        self.color = RED
+        self.radius = 18
+        self.color = (200, 50, 80)  # Red-pink robot
         self.points = 100
         self.last_shot = 0
         self.fire_rate = 2000
+        self.angle = 0
 
     def update(self, players):
-        """Move toward nearest player"""
         if not players:
             return True
 
-        # Find nearest player
         nearest = min(players, key=lambda p: math.hypot(p.x - self.x, p.y - self.y))
         angle = math.atan2(nearest.y - self.y, nearest.x - self.x)
         self.x += math.cos(angle) * self.speed
         self.y += math.sin(angle) * self.speed
+        self.angle += 0.05
         return True
 
     def try_shoot(self, players):
-        """Try to shoot at nearest player"""
         if not players:
             return None
 
@@ -363,54 +465,72 @@ class Enemy:
         return None
 
     def draw(self, surface):
-        # Enemy body
-        pygame.draw.circle(surface, self.color, (int(self.x), int(self.y)), self.radius)
-        pygame.draw.circle(surface, WHITE, (int(self.x), int(self.y)), self.radius, 2)
+        cx, cy = int(self.x), int(self.y)
+
+        # Robot body - hexagonal shape
+        points = []
+        for i in range(6):
+            a = self.angle + i * math.pi / 3
+            px = cx + math.cos(a) * self.radius
+            py = cy + math.sin(a) * self.radius
+            points.append((px, py))
+        pygame.draw.polygon(surface, self.color, points)
+
+        # Inner body
+        inner_points = []
+        for i in range(6):
+            a = self.angle + i * math.pi / 3
+            px = cx + math.cos(a) * (self.radius - 5)
+            py = cy + math.sin(a) * (self.radius - 5)
+            inner_points.append((px, py))
+        pygame.draw.polygon(surface, (100, 30, 50), inner_points)
+
+        # Robot eye
+        pygame.draw.circle(surface, (255, 50, 50), (cx, cy), 6)
+        pygame.draw.circle(surface, WHITE, (cx, cy), 3)
 
         # Health bar
-        bar_width = self.radius * 2
-        bar_height = 4
-        health_pct = self.health / self.max_health
-        pygame.draw.rect(surface, RED, (self.x - bar_width//2, self.y - self.radius - 10, bar_width, bar_height))
-        pygame.draw.rect(surface, GREEN, (self.x - bar_width//2, self.y - self.radius - 10, bar_width * health_pct, bar_height))
+        if self.health < self.max_health:
+            bar_width = self.radius * 2
+            bar_height = 4
+            health_pct = self.health / self.max_health
+            pygame.draw.rect(surface, RED, (cx - bar_width//2, cy - self.radius - 10, bar_width, bar_height))
+            pygame.draw.rect(surface, GREEN, (cx - bar_width//2, cy - self.radius - 10, bar_width * health_pct, bar_height))
 
 
 class FastEnemy(Enemy):
-    """Fast but weak enemy"""
     def __init__(self, x, y):
         super().__init__(x, y)
         self.health = 20
         self.max_health = 20
         self.speed = 4
-        self.radius = 12
-        self.color = YELLOW
+        self.radius = 14
+        self.color = (255, 200, 50)  # Yellow
         self.points = 75
         self.fire_rate = 3000
 
 
 class HeavyEnemy(Enemy):
-    """Slow but tough enemy"""
     def __init__(self, x, y):
         super().__init__(x, y)
         self.health = 80
         self.max_health = 80
         self.speed = 1
-        self.radius = 25
-        self.color = PURPLE
+        self.radius = 28
+        self.color = (150, 50, 200)  # Purple
         self.points = 200
         self.damage = 20
         self.fire_rate = 1500
 
 
 class SniperEnemy(Enemy):
-    """Long-range enemy"""
     def __init__(self, x, y):
         super().__init__(x, y)
         self.health = 25
         self.max_health = 25
         self.speed = 1.5
-        self.radius = 15
-        self.color = ORANGE
+        self.radius = 16
+        self.color = (255, 150, 50)  # Orange
         self.points = 150
         self.fire_rate = 1200
         self.preferred_distance = 300
@@ -423,7 +543,6 @@ class SniperEnemy(Enemy):
         dist = math.hypot(nearest.x - self.x, nearest.y - self.y)
         angle = math.atan2(nearest.y - self.y, nearest.x - self.x)
 
-        # Keep distance
         if dist < self.preferred_distance - 50:
             self.x -= math.cos(angle) * self.speed
             self.y -= math.sin(angle) * self.speed
@@ -431,22 +550,10 @@ class SniperEnemy(Enemy):
             self.x += math.cos(angle) * self.speed
             self.y += math.sin(angle) * self.speed
 
-        # Stay in bounds
         self.x = max(self.radius, min(WIDTH - self.radius, self.x))
         self.y = max(self.radius, min(HEIGHT - self.radius, self.y))
+        self.angle += 0.08
         return True
-
-    def try_shoot(self, players):
-        if not players:
-            return None
-
-        current_time = pygame.time.get_ticks()
-        if current_time - self.last_shot >= self.fire_rate:
-            nearest = min(players, key=lambda p: math.hypot(p.x - self.x, p.y - self.y))
-            self.last_shot = current_time
-            angle = math.atan2(nearest.y - self.y, nearest.x - self.x)
-            return EnemyBullet(self.x, self.y, angle, 10, 15)
-        return None
 
 
 class Boss:
@@ -474,11 +581,9 @@ class Boss:
                 self.entering = False
             return True
 
-        # Move side to side
         self.angle += 0.02
         self.x = WIDTH // 2 + math.sin(self.angle) * 200
 
-        # Update attack pattern
         current_time = pygame.time.get_ticks()
         if current_time - self.pattern_timer > 5000:
             self.attack_pattern = (self.attack_pattern + 1) % 3
@@ -494,21 +599,18 @@ class Boss:
         bullets = []
 
         if self.attack_pattern == 0:
-            # Spread pattern
             if current_time - self.last_shot >= 300:
                 self.last_shot = current_time
                 for i in range(5):
                     angle = math.pi / 2 + (i - 2) * 0.3
                     bullets.append(EnemyBullet(self.x, self.y + self.radius, angle, 4, 15))
         elif self.attack_pattern == 1:
-            # Aimed shots
             if current_time - self.last_shot >= 500:
                 self.last_shot = current_time
                 for p in players:
                     angle = math.atan2(p.y - self.y, p.x - self.x)
                     bullets.append(EnemyBullet(self.x, self.y + self.radius, angle, 6, 20))
         else:
-            # Spiral pattern
             if current_time - self.last_shot >= 100:
                 self.last_shot = current_time
                 angle = self.angle * 5
@@ -517,17 +619,24 @@ class Boss:
         return bullets
 
     def draw(self, surface):
-        # Boss body
-        pygame.draw.circle(surface, PURPLE, (int(self.x), int(self.y)), self.radius)
-        pygame.draw.circle(surface, RED, (int(self.x), int(self.y)), self.radius - 10)
-        pygame.draw.circle(surface, WHITE, (int(self.x), int(self.y)), self.radius, 3)
+        cx, cy = int(self.x), int(self.y)
+
+        # Boss body - large robot
+        pygame.draw.circle(surface, (200, 50, 100), (cx, cy), self.radius)
+        pygame.draw.circle(surface, (150, 30, 70), (cx, cy), self.radius - 10)
+
+        # Rotating outer ring
+        for i in range(8):
+            a = self.angle + i * math.pi / 4
+            px = cx + math.cos(a) * (self.radius - 5)
+            py = cy + math.sin(a) * (self.radius - 5)
+            pygame.draw.circle(surface, CYAN, (int(px), int(py)), 8)
 
         # Eyes
-        eye_offset = 20
-        pygame.draw.circle(surface, WHITE, (int(self.x - eye_offset), int(self.y - 10)), 12)
-        pygame.draw.circle(surface, WHITE, (int(self.x + eye_offset), int(self.y - 10)), 12)
-        pygame.draw.circle(surface, RED, (int(self.x - eye_offset), int(self.y - 10)), 6)
-        pygame.draw.circle(surface, RED, (int(self.x + eye_offset), int(self.y - 10)), 6)
+        pygame.draw.circle(surface, WHITE, (cx - 20, cy - 10), 15)
+        pygame.draw.circle(surface, WHITE, (cx + 20, cy - 10), 15)
+        pygame.draw.circle(surface, RED, (cx - 20, cy - 10), 8)
+        pygame.draw.circle(surface, RED, (cx + 20, cy - 10), 8)
 
         # Health bar
         bar_width = 200
@@ -571,12 +680,10 @@ class PowerUp:
         return pygame.time.get_ticks() - self.spawn_time < self.lifetime and self.y < HEIGHT
 
     def draw(self, surface):
-        # Pulsing effect
         pulse = abs(math.sin(self.angle)) * 5
         pygame.draw.circle(surface, self.color, (int(self.x), int(self.y)), int(self.radius + pulse))
         pygame.draw.circle(surface, WHITE, (int(self.x), int(self.y)), self.radius, 2)
 
-        # Icon
         icons = {"shield": "S", "rapid_fire": "R", "spread_shot": "W", "damage_boost": "D", "health": "+"}
         icon = small_font.render(icons[self.type], True, WHITE)
         surface.blit(icon, (self.x - icon.get_width() // 2, self.y - icon.get_height() // 2))
@@ -700,7 +807,14 @@ class Game:
         self.enemy_bullets = []
         self.powerups = []
         self.particles = []
-        self.stars = [Star() for _ in range(100)]
+        self.stars = [Star() for _ in range(50)]
+        self.debris = [SpaceDebris() for _ in range(40)]
+
+        # Create background
+        self.background = create_nebula_background()
+        self.planet = create_planet()
+        self.planet_x = WIDTH - 100
+        self.planet_y = 80
 
         self.wave = 1
         self.wave_timer = 0
@@ -805,14 +919,15 @@ class Game:
             self.particles.append(Particle(x, y, color))
 
     def update(self, events):
-        """Main update loop"""
         keys = pygame.key.get_pressed()
         mouse_pos = pygame.mouse.get_pos()
         mouse_buttons = pygame.mouse.get_pressed()
 
-        # Update stars
+        # Update background elements
         for star in self.stars:
             star.update()
+        for debris in self.debris:
+            debris.update()
 
         if self.state == "menu":
             self.update_menu(events, keys)
@@ -909,7 +1024,6 @@ class Game:
     def update_playing(self, events, keys, mouse_pos, mouse_buttons):
         current_time = pygame.time.get_ticks()
 
-        # Check for pause
         for event in events:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self.state = "menu"
@@ -920,7 +1034,6 @@ class Game:
             if player.health > 0:
                 player.update(keys, mouse_pos, i)
 
-                # Shooting
                 should_shoot = False
                 if i == 0:
                     should_shoot = mouse_buttons[0]
@@ -978,7 +1091,6 @@ class Game:
             self.save_data()
 
     def check_collisions(self):
-        # Player bullets vs enemies
         for bullet in self.bullets[:]:
             for enemy in self.enemies[:]:
                 dist = math.hypot(bullet.x - enemy.x, bullet.y - enemy.y)
@@ -998,7 +1110,6 @@ class Game:
                         self.enemies.remove(enemy)
                     break
 
-            # Player bullets vs boss
             if self.boss and bullet in self.bullets:
                 dist = math.hypot(bullet.x - self.boss.x, bullet.y - self.boss.y)
                 if dist < bullet.radius + self.boss.radius:
@@ -1011,7 +1122,6 @@ class Game:
                             p.score += self.boss.points
                         self.boss = None
 
-        # Enemy bullets vs players
         for bullet in self.enemy_bullets[:]:
             for player in self.players:
                 if player.health <= 0:
@@ -1023,7 +1133,6 @@ class Game:
                         self.enemy_bullets.remove(bullet)
                     break
 
-        # Players vs enemies (collision damage)
         for player in self.players:
             if player.health <= 0:
                 continue
@@ -1032,7 +1141,6 @@ class Game:
                 if dist < player.radius + enemy.radius:
                     player.take_damage(20)
 
-        # Players vs power-ups
         for player in self.players:
             if player.health <= 0:
                 continue
@@ -1050,11 +1158,19 @@ class Game:
                     self.menu_selection = 0
 
     def draw(self):
-        screen.fill(DARK_BLUE)
+        # Draw nebula background
+        screen.blit(self.background, (0, 0))
 
         # Draw stars
         for star in self.stars:
             star.draw(screen)
+
+        # Draw debris
+        for debris in self.debris:
+            debris.draw(screen)
+
+        # Draw planet
+        screen.blit(self.planet, (self.planet_x - 60, self.planet_y - 60))
 
         if self.state == "menu":
             self.draw_menu()
@@ -1118,7 +1234,6 @@ class Game:
         prompt = font.render("Enter Host IP Address:", True, WHITE)
         screen.blit(prompt, (WIDTH // 2 - prompt.get_width() // 2, 250))
 
-        # IP input box
         box_width = 300
         box_x = WIDTH // 2 - box_width // 2
         pygame.draw.rect(screen, WHITE, (box_x, 300, box_width, 50), 2)
@@ -1177,29 +1292,24 @@ class Game:
         self.draw_hud()
 
     def draw_hud(self):
-        # Wave info
         wave_text = font.render(f"Wave: {self.wave}", True, WHITE)
         screen.blit(wave_text, (WIDTH // 2 - wave_text.get_width() // 2, 10))
 
-        # Player health bars and scores
         for i, player in enumerate(self.players):
             x = 10 + i * 200
             y = HEIGHT - 60
 
-            # Health bar
             bar_width = 150
             bar_height = 15
             health_pct = max(0, player.health / player.max_health)
 
             pygame.draw.rect(screen, (50, 50, 50), (x, y, bar_width, bar_height))
-            pygame.draw.rect(screen, player.color, (x, y, bar_width * health_pct, bar_height))
+            pygame.draw.rect(screen, CYAN, (x, y, bar_width * health_pct, bar_height))
             pygame.draw.rect(screen, WHITE, (x, y, bar_width, bar_height), 1)
 
-            # Player label
-            label = small_font.render(f"P{i + 1}", True, player.color)
+            label = small_font.render(f"P{i + 1}", True, CREAM)
             screen.blit(label, (x, y - 20))
 
-            # Score
             score_text = small_font.render(f"Score: {player.score}", True, WHITE)
             screen.blit(score_text, (x, y + 20))
 
