@@ -358,55 +358,185 @@ class Player:
             self.health = min(self.max_health, self.health + 30)
 
     def draw(self, surface):
-        """Draw the triangular spacecraft"""
+        """Draw the detailed pixel-art style spacecraft"""
         cx, cy = int(self.x), int(self.y)
 
-        # Main ship body - triangular shape pointing in aim direction
-        nose_x = cx + math.cos(self.angle) * 25
-        nose_y = cy + math.sin(self.angle) * 25
+        # Colors for the ship
+        GRAY_LIGHT = (200, 200, 210)
+        GRAY_MED = (160, 160, 170)
+        GRAY_DARK = (120, 120, 130)
+        GRAY_DARKER = (90, 90, 100)
+        GOLD = (220, 180, 50)
+        GOLD_DARK = (180, 140, 30)
+        BLUE_COCKPIT = (80, 140, 220)
+        BLUE_COCKPIT_LIGHT = (120, 180, 255)
+        RED_ACCENT = (200, 60, 60)
 
-        left_x = cx + math.cos(self.angle + 2.5) * 18
-        left_y = cy + math.sin(self.angle + 2.5) * 18
+        # Ship is pointing up by default, rotate all points by self.angle + pi/2
+        a = self.angle + math.pi / 2
 
-        right_x = cx + math.cos(self.angle - 2.5) * 18
-        right_y = cy + math.sin(self.angle - 2.5) * 18
+        def rotate_point(px, py):
+            """Rotate point around center"""
+            cos_a = math.cos(a)
+            sin_a = math.sin(a)
+            return (cx + px * cos_a - py * sin_a, cy + px * sin_a + py * cos_a)
 
-        # Draw main body
-        pygame.draw.polygon(surface, self.color, [
-            (nose_x, nose_y),
-            (left_x, left_y),
-            (right_x, right_y)
-        ])
+        # Main body - center fuselage (gray metallic)
+        body_points = [
+            rotate_point(0, -28),   # Nose tip
+            rotate_point(-4, -20),
+            rotate_point(-6, -10),
+            rotate_point(-5, 5),
+            rotate_point(-3, 18),
+            rotate_point(0, 22),    # Bottom center
+            rotate_point(3, 18),
+            rotate_point(5, 5),
+            rotate_point(6, -10),
+            rotate_point(4, -20),
+        ]
+        pygame.draw.polygon(surface, GRAY_LIGHT, body_points)
 
-        # Inner darker triangle
-        inner_nose_x = cx + math.cos(self.angle) * 18
-        inner_nose_y = cy + math.sin(self.angle) * 18
-        inner_left_x = cx + math.cos(self.angle + 2.3) * 12
-        inner_left_y = cy + math.sin(self.angle + 2.3) * 12
-        inner_right_x = cx + math.cos(self.angle - 2.3) * 12
-        inner_right_y = cy + math.sin(self.angle - 2.3) * 12
+        # Body shading - left side darker
+        body_left = [
+            rotate_point(0, -28),
+            rotate_point(-4, -20),
+            rotate_point(-6, -10),
+            rotate_point(-5, 5),
+            rotate_point(-3, 18),
+            rotate_point(0, 18),
+            rotate_point(0, -28),
+        ]
+        pygame.draw.polygon(surface, GRAY_MED, body_left)
 
-        darker = (max(0, self.color[0] - 40), max(0, self.color[1] - 40), max(0, self.color[2] - 40))
-        pygame.draw.polygon(surface, darker, [
-            (inner_nose_x, inner_nose_y),
-            (inner_left_x, inner_left_y),
-            (inner_right_x, inner_right_y)
-        ])
+        # Left wing - outer
+        left_wing_outer = [
+            rotate_point(-6, -5),
+            rotate_point(-22, 8),
+            rotate_point(-28, 18),
+            rotate_point(-24, 22),
+            rotate_point(-18, 20),
+            rotate_point(-8, 12),
+            rotate_point(-5, 5),
+        ]
+        pygame.draw.polygon(surface, GRAY_DARK, left_wing_outer)
 
-        # Cockpit - small blue circle
-        cockpit_x = cx + math.cos(self.angle) * 5
-        cockpit_y = cy + math.sin(self.angle) * 5
-        pygame.draw.circle(surface, (100, 150, 255), (int(cockpit_x), int(cockpit_y)), 4)
+        # Right wing - outer
+        right_wing_outer = [
+            rotate_point(6, -5),
+            rotate_point(22, 8),
+            rotate_point(28, 18),
+            rotate_point(24, 22),
+            rotate_point(18, 20),
+            rotate_point(8, 12),
+            rotate_point(5, 5),
+        ]
+        pygame.draw.polygon(surface, GRAY_MED, right_wing_outer)
+
+        # Left wing inner layer
+        left_wing_inner = [
+            rotate_point(-5, 0),
+            rotate_point(-16, 10),
+            rotate_point(-20, 18),
+            rotate_point(-14, 16),
+            rotate_point(-6, 10),
+        ]
+        pygame.draw.polygon(surface, GRAY_DARKER, left_wing_inner)
+
+        # Right wing inner layer
+        right_wing_inner = [
+            rotate_point(5, 0),
+            rotate_point(16, 10),
+            rotate_point(20, 18),
+            rotate_point(14, 16),
+            rotate_point(6, 10),
+        ]
+        pygame.draw.polygon(surface, GRAY_DARK, right_wing_inner)
+
+        # Gold accents on wings
+        left_gold = [
+            rotate_point(-18, 14),
+            rotate_point(-24, 20),
+            rotate_point(-20, 20),
+            rotate_point(-15, 16),
+        ]
+        pygame.draw.polygon(surface, GOLD, left_gold)
+
+        right_gold = [
+            rotate_point(18, 14),
+            rotate_point(24, 20),
+            rotate_point(20, 20),
+            rotate_point(15, 16),
+        ]
+        pygame.draw.polygon(surface, GOLD, right_gold)
+
+        # Red accent on left wing tip
+        red_accent = [
+            rotate_point(-26, 16),
+            rotate_point(-28, 18),
+            rotate_point(-26, 20),
+            rotate_point(-24, 18),
+        ]
+        pygame.draw.polygon(surface, RED_ACCENT, red_accent)
+
+        # Engine housings (yellow/gold tubes on sides)
+        left_engine = [
+            rotate_point(-8, 8),
+            rotate_point(-10, 10),
+            rotate_point(-10, 20),
+            rotate_point(-8, 22),
+            rotate_point(-6, 20),
+            rotate_point(-6, 10),
+        ]
+        pygame.draw.polygon(surface, GOLD_DARK, left_engine)
+
+        right_engine = [
+            rotate_point(8, 8),
+            rotate_point(10, 10),
+            rotate_point(10, 20),
+            rotate_point(8, 22),
+            rotate_point(6, 20),
+            rotate_point(6, 10),
+        ]
+        pygame.draw.polygon(surface, GOLD, right_engine)
+
+        # Main engine exhaust (yellow at bottom center)
+        engine_exhaust = [
+            rotate_point(-4, 18),
+            rotate_point(-3, 26),
+            rotate_point(0, 28),
+            rotate_point(3, 26),
+            rotate_point(4, 18),
+        ]
+        pygame.draw.polygon(surface, GOLD, engine_exhaust)
 
         # Engine glow
-        engine_x = cx - math.cos(self.angle) * 15
-        engine_y = cy - math.sin(self.angle) * 15
-        pygame.draw.circle(surface, (255, 200, 100), (int(engine_x), int(engine_y)), 5)
-        pygame.draw.circle(surface, (255, 255, 200), (int(engine_x), int(engine_y)), 3)
+        glow_pos = rotate_point(0, 24)
+        pygame.draw.circle(surface, (255, 200, 100), (int(glow_pos[0]), int(glow_pos[1])), 4)
+        pygame.draw.circle(surface, (255, 255, 200), (int(glow_pos[0]), int(glow_pos[1])), 2)
+
+        # Cockpit (blue oval)
+        cockpit_pos = rotate_point(0, -12)
+        # Draw elongated cockpit
+        cockpit_points = []
+        for i in range(12):
+            angle_c = i * math.pi * 2 / 12
+            px = math.cos(angle_c) * 4
+            py = math.sin(angle_c) * 8
+            cockpit_points.append(rotate_point(px, -12 + py))
+        pygame.draw.polygon(surface, BLUE_COCKPIT, cockpit_points)
+
+        # Cockpit highlight
+        highlight_points = []
+        for i in range(8):
+            angle_c = i * math.pi * 2 / 8
+            px = math.cos(angle_c) * 2
+            py = math.sin(angle_c) * 5
+            highlight_points.append(rotate_point(px - 1, -14 + py))
+        pygame.draw.polygon(surface, BLUE_COCKPIT_LIGHT, highlight_points)
 
         # Shield effect
         if self.shield_active:
-            pygame.draw.circle(surface, (100, 200, 255), (cx, cy), self.radius + 10, 3)
+            pygame.draw.circle(surface, (100, 200, 255), (cx, cy), self.radius + 12, 3)
 
         # Power-up indicators
         indicators = []
@@ -420,7 +550,7 @@ class Player:
         for i, (text, color) in enumerate(indicators):
             x = cx - 10 + i * 15
             txt = small_font.render(text, True, color)
-            surface.blit(txt, (x, cy - self.radius - 15))
+            surface.blit(txt, (x, cy - self.radius - 20))
 
 
 class Enemy:
